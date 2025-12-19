@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class AlertManager:
     def __init__(self, config: Dict[str, Any], deduplicator: Optional[AlertDeduplicator] = None):
         self.webhook_url = config['keep_webhook_url']
+        self.keep_api_key = config.get('keep_api_key', '')
         self.max_retries = config.get('max_retries', 3)
         self.retry_delay = config.get('retry_delay', 1)
         self.max_alerts_per_minute = config.get('max_alerts_per_minute', 100)
@@ -21,7 +22,9 @@ class AlertManager:
         # Deduplication
         self.deduplicator = deduplicator
 
-        logger.info(f"Alert manager initialized (webhook: {self.webhook_url}, max_alerts/min: {self.max_alerts_per_minute})")
+        # Log initialization (mask API key if present)
+        api_key_status = "configured" if self.keep_api_key else "not configured"
+        logger.info(f"Alert manager initialized (webhook: {self.webhook_url}, API key: {api_key_status}, max_alerts/min: {self.max_alerts_per_minute})")
 
     def send_alert(self, alert_data: Dict[str, Any]) -> bool:
         """
@@ -92,10 +95,17 @@ class AlertManager:
             try:
                 logger.debug(f"Sending alert (attempt {attempt + 1}/{self.max_retries}): {rule_title}")
 
+                # Prepare headers
+                headers = {'Content-Type': 'application/json'}
+
+                # Add X-API-KEY header if API key is configured
+                if self.keep_api_key:
+                    headers['X-API-KEY'] = self.keep_api_key
+
                 response = requests.post(
                     self.webhook_url,
                     json=payload,
-                    headers={'Content-Type': 'application/json'},
+                    headers=headers,
                     timeout=10
                 )
 
