@@ -44,6 +44,30 @@ Check logs to see processing status:
 docker-compose logs -f security-analyzer
 ```
 
+## Testing
+
+Generate test security events to validate Sigma rule matching:
+
+```bash
+# Send 100 test events to OTEL collector
+./test_otel_events.sh
+
+# Send custom number of events
+./test_otel_events.sh 50
+
+# Watch for generated alerts
+docker-compose logs -f security-analyzer | grep -i alert
+```
+
+The test script generates realistic security events including:
+- Failed login attempts (EventID 4625)
+- Mimikatz credential dumping (EventID 10)
+- Suspicious PowerShell scripts (EventID 4104)
+- Privilege escalation (EventID 4728)
+- Lateral movement (EventID 4624)
+
+For detailed testing procedures, see [TESTING.md](TESTING.md).
+
 ## Development
 
 1.  Create a virtual environment:
