@@ -43,17 +43,15 @@ class ClickHouseConsumer:
                 attributes_bool,
                 resources_string
             FROM {self.table}
-            WHERE timestamp > %(last_time)s
+            WHERE timestamp > {last_time_ns}
             ORDER BY timestamp ASC
-            LIMIT %(limit)d
+            LIMIT {self.batch_size}
         """
         
         try:
-            # Execute query with parameters
-            # ClickHouse driver params usually work for basic types, but ensure last_time matches column type (UInt64)
+            # Execute query without parameters (already injected)
             rows = self.client.execute(
                 query, 
-                {'last_time': last_time_ns, 'limit': self.batch_size},
                 with_column_types=True
             )
             
