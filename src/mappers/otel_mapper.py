@@ -1,5 +1,8 @@
 import json
+import logging
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 class OtelMapper:
     def __init__(self, mappings: Dict[str, Any]):
@@ -83,36 +86,86 @@ class OtelMapper:
 
         return structured_log
 
+    def _detect_log_source(self, structured_log: Dict[str, Any]) -> str:
+        """
+        Detect the log source type (windows, linux, etc.) based on log content.
+
+        Args:
+            structured_log: Parsed log entry
+
+        Returns:
+            Source type string ('windows', 'linux', or 'unknown')
+        """
+        # Check for Windows-specific indicators
+        body = structured_log.get('body', {})
+        attributes = structured_log.get('attributes', {})
+
+        # Windows: has EventID and Channel fields
+        if isinstance(body, dict) and 'EventID' in body:
+            logger.debug("Detected Windows log (EventID present)")
+            return 'windows'
+
+        if isinstance(body, dict) and 'Channel' in body:
+            logger.debug("Detected Windows log (Channel present)")
+            return 'windows'
+
+        # Windows: OS type indicator
+        os_type = attributes.get('os.type') or attributes.get('os_type')
+        if os_type and 'windows' in str(os_type).lower():
+            logger.debug("Detected Windows log (os.type)")
+            return 'windows'
+
+        # Linux: syslog message format
+        if isinstance(body, dict) and 'message' in body:
+            logger.debug("Detected Linux log (syslog message)")
+            return 'linux'
+
+        # Linux: log file path indicators
+        log_file = attributes.get('log.file.path') or attributes.get('log_file_path')
+        if log_file and any(path in str(log_file) for path in ['/var/log', '/etc/', '/proc/']):
+            logger.debug("Detected Linux log (file path)")
+            return 'linux'
+
+        if os_type and 'linux' in str(os_type).lower():
+            logger.debug("Detected Linux log (os.type)")
+            return 'linux'
+
+        logger.debug("Unable to detect log source, treating as unknown")
+        return 'unknown'
+
     def map_to_sigma(self, raw_log: Dict[str, Any]) -> Dict[str, Any]:
         """
         Maps a raw log entry to a flat Sigma-compatible dictionary based on configuration.
+        Automatically detects log source type and applies appropriate mappings.
         """
         structured_log = self.parse_log_entry(raw_log)
         mapped_log = {}
 
-        # Determine if it's Windows or Linux (simple heuristic or config based)
-        # For now, we'll try to apply all mappings or decide based on a field.
-        # Let's flatten everything we can find.
-        
-        # We start with the raw log as the base, so fields that are ALREADY flat exist
-        # But usually Sigma expects specific renamed fields.
-        
-        # Iterate through all configured mapping categories (windows, linux)
-        # In a real app, you'd select the category based on log source.
-        # Here we just iterate 'windows' mappings as default for demonstration
-        # or merge all.
-        
-        # Taking a simple approach: Flatten EVERYTHING defined in mappings.
-        all_mappings = {}
-        for category in self.mappings.values():
-            all_mappings.update(category)
-            
-        for sigma_field, otel_path in all_mappings.items():
+        # Detect log source type
+        source_type = self._detect_log_source(structured_log)
+
+        # Select appropriate mappings
+        if source_type in self.mappings:
+            active_mappings = self.mappings[source_type]
+            logger.debug(f"Applying {source_type} mappings ({len(active_mappings)} fields)")
+        else:
+            # Fall back to merging all mappings for unknown sources
+            active_mappings = {}
+            for category in self.mappings.values():
+                active_mappings.update(category)
+            logger.debug(f"Source type unknown, applying all mappings ({len(active_mappings)} fields)")
+
+        # Apply mappings
+        for sigma_field, otel_path in active_mappings.items():
             val = self._get_nested_value(structured_log, otel_path)
             if val is not None:
                 mapped_log[sigma_field] = val
-                
-        # Also preserve original fields if needed for context
-        mapped_log['original_log'] = structured_log
-        
+
+        # Add metadata
+        mapped_log['_source_type'] = source_type
+        mapped_log['_timestamp'] = structured_log.get('timestamp')
+
+        # Preserve original log for debugging (optional)
+        # mapped_log['original_log'] = structured_log
+
         return mapped_log
