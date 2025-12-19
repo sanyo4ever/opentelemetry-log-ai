@@ -214,23 +214,63 @@ EOF
     print_info "Configuration file created at $CONFIG_FILE"
 }
 
+cleanup_docker() {
+    print_info "Cleaning up old Docker resources..."
+
+    # Stop and remove old containers
+    docker-compose down 2>/dev/null || true
+
+    # Remove dangling containers
+    docker ps -a | grep security-log-analyzer | awk '{print $1}' | xargs docker rm -f 2>/dev/null || true
+
+    # Remove dangling images
+    docker images | grep security-log-analyzer | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
+
+    # Prune dangling images
+    docker image prune -f
+
+    print_info "Cleanup completed"
+}
+
 start_service() {
     print_info "Starting service with Docker Compose..."
-    
-    # Check if 'signoz-net' exists, if not warn user
+
+    # Cleanup old resources first
+    cleanup_docker
+
+    # Create required directories
+    mkdir -p data logs config
+
+    # Check if 'signoz-net' exists, if not create it
     if ! docker network ls | grep -q "signoz-net"; then
         print_warn "Network 'signoz-net' not found."
-        print_warn "If you are running SigNoz, ensure it is up."
-        print_warn "Trying to create it if it doesn't exist (though SigNoz usually creates it)..."
+        print_info "Creating signoz-net network..."
         docker network create signoz-net || true
     fi
 
-    docker-compose up -d --build
+    # Build and start with clean slate
+    print_info "Building and starting containers..."
+    docker-compose build --no-cache
+    docker-compose up -d
 
     if [ $? -eq 0 ]; then
         print_info "Service started successfully!"
+
+        # Wait for container to be healthy
+        sleep 3
+
+        # Check if container is running
+        if docker ps | grep -q security-log-analyzer; then
+            print_info "Container is running"
+        else
+            print_error "Container failed to start"
+            print_info "Checking logs..."
+            docker-compose logs --tail=50
+            exit 1
+        fi
     else
         print_error "Failed to start service."
+        docker-compose logs --tail=50
         exit 1
     fi
 }
@@ -240,9 +280,16 @@ print_summary() {
     print_info "=========================================="
     print_info "Service: $SERVICE_NAME"
     print_info "Status: RUNNING (Docker)"
+    print_info "Restart Policy: unless-stopped"
     echo ""
-    print_info "Logs:"
-    print_info "  docker-compose logs -f security-analyzer"
+    print_info "Useful Commands:"
+    print_info "  View logs:    docker-compose logs -f security-analyzer"
+    print_info "  Restart:      docker-compose restart"
+    print_info "  Stop:         docker-compose stop"
+    print_info "  Status:       docker ps | grep security-log-analyzer"
+    print_info "  Shell access: docker exec -it security-log-analyzer bash"
+    echo ""
+    print_info "The container will auto-restart on server reboot"
     print_info "=========================================="
 }
 
