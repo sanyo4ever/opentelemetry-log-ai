@@ -26,11 +26,14 @@ class ClickHouseConsumer:
         self.table = config['table']
         self.batch_size = config.get('batch_size', 1000)
         self.checkpoint_manager = checkpoint_manager
+        self.service_name_allowlist = config.get('service_name_allowlist', []) or []
+        self.body_contains = config.get('body_contains', []) or []
+        self.additional_where = config.get('additional_where')
 
         # Load checkpoint or determine initial start point
         if self.checkpoint_manager:
             saved_checkpoint = self.checkpoint_manager.load()
-            if saved_checkpoint:
+            if saved_checkpoint is not None:
                 # Resume from saved checkpoint
                 self.last_query_time = saved_checkpoint
                 logger.info(f"Resuming from saved checkpoint: {self.last_query_time}")
@@ -52,6 +55,28 @@ class ClickHouseConsumer:
 
         logger.info(f"ClickHouse consumer initialized. Starting timestamp: {self.last_query_time}")
 
+    def _quote_sql_string(self, value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    def _build_filter_where(self) -> str:
+        clauses: List[str] = []
+
+        if self.service_name_allowlist:
+            service_names = ", ".join(self._quote_sql_string(name) for name in self.service_name_allowlist if name)
+            if service_names:
+                clauses.append(f"resources_string['service.name'] IN ({service_names})")
+
+        if self.body_contains:
+            parts = [substring for substring in self.body_contains if substring]
+            if parts:
+                contains = " OR ".join(f"position(body, {self._quote_sql_string(part)}) > 0" for part in parts)
+                clauses.append(f"({contains})")
+
+        if self.additional_where:
+            clauses.append(f"({self.additional_where})")
+
+        return " AND ".join(clauses)
+
     def fetch_logs(self) -> List[Dict[str, Any]]:
         """
         Polls ClickHouse for new logs since the last query time.
@@ -59,6 +84,11 @@ class ClickHouseConsumer:
         """
         # Ensure timestamp is integer nanoseconds
         last_time_ns = int(self.last_query_time)
+
+        where = [f"timestamp > {last_time_ns}"]
+        filter_where = self._build_filter_where()
+        if filter_where:
+            where.append(filter_where)
 
         query = f"""
             SELECT
@@ -72,7 +102,7 @@ class ClickHouseConsumer:
                 attributes_bool,
                 resources_string
             FROM {self.table}
-            WHERE timestamp > {last_time_ns}
+            WHERE {' AND '.join(where)}
             ORDER BY timestamp ASC
             LIMIT {self.batch_size}
         """

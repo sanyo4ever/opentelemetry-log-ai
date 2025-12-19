@@ -83,6 +83,10 @@ class OtelMapper:
         if isinstance(resources, dict):
             # OTEL usually expects resources separate, but let's ensure it's a dict
             structured_log['resource'] = resources
+            # For mapping convenience, merge resource attributes into attributes
+            # (without overwriting log record attributes).
+            for key, value in resources.items():
+                attributes.setdefault(key, value)
 
         return structured_log
 

@@ -2,10 +2,21 @@
 windows:
   EventID: body.EventID
   Channel: body.Channel
+  ServiceName: attributes.service.name
   Computer: attributes.host.name
   OSType: attributes.os.type
   TargetUserName: body.EventData.TargetUserName
   IpAddress: body.EventData.IpAddress
+  FailureReason: body.EventData.FailureReason
+  LogonType: body.EventData.LogonType
+  AuthenticationPackageName: body.EventData.AuthenticationPackageName
+  MemberName: body.EventData.MemberName
+  SubjectUserName: body.EventData.SubjectUserName
+  ScriptBlockText: body.ScriptBlockText
+  ScriptPath: body.Path
+  SourceImage: body.EventData.SourceImage
+  TargetImage: body.EventData.TargetImage
+  GrantedAccess: body.EventData.GrantedAccess
   Level: severity_text
 
 # Linux Syslog
