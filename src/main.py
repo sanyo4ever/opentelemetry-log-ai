@@ -38,9 +38,21 @@ def setup_logging(config: Dict[str, Any]):
     logging.getLogger('clickhouse_driver').setLevel(logging.INFO)
 
 def load_config(path: str) -> Dict[str, Any]:
-    """Load YAML configuration file."""
+    """Load YAML configuration file with environment variable expansion."""
     with open(path, 'r') as f:
-        return yaml.safe_load(f)
+        # Read config content
+        content = f.read()
+
+        # Expand environment variables (${VAR_NAME} format)
+        import re
+        def expand_env_var(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, '')
+
+        content = re.sub(r'\$\{([^}]+)\}', expand_env_var, content)
+
+        # Parse YAML
+        return yaml.safe_load(content)
 
 def main():
     # Load configs first (before logging setup)

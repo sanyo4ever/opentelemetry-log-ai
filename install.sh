@@ -69,20 +69,67 @@ setup_sigma_rules() {
     fi
 }
 
+validate_env_file() {
+    print_info "Checking for .env file..."
+
+    if [ -f ".env" ]; then
+        print_info "Found .env file"
+
+        # Source the .env file
+        set -a
+        source .env
+        set +a
+
+        # Validate required variables
+        MISSING_VARS=()
+
+        if [ -z "$KEEP_API_KEY" ]; then
+            MISSING_VARS+=("KEEP_API_KEY")
+        fi
+
+        if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+            print_warn "Missing environment variables in .env:"
+            for var in "${MISSING_VARS[@]}"; do
+                print_warn "  - $var"
+            done
+            print_warn "Service will start but may not function properly without these"
+        else
+            print_info "All required environment variables are set"
+        fi
+    else
+        print_warn ".env file not found"
+        print_warn "Creating template .env file..."
+        cat > .env <<'EOF'
+# Keep Platform API Key
+KEEP_API_KEY=
+
+# Optional: ClickHouse credentials
+# CLICKHOUSE_USER=default
+# CLICKHOUSE_PASSWORD=
+
+# Optional: Redis password
+# REDIS_PASSWORD=
+EOF
+        print_warn "Please edit .env file and add your credentials"
+        print_warn "  nano .env"
+    fi
+}
+
 setup_configuration() {
     print_info "Setting up configuration..."
-    
+
     mkdir -p "$CONFIG_DIR"
-    
+
     # Defaults
     DEFAULT_CH_HOST="clickhouse"
     DEFAULT_CH_PORT="9000"
-    DEFAULT_WEBHOOK="https://api.keephq.dev/alerts"
-    
+    DEFAULT_WEBHOOK="https://api.keephq.dev/alerts/event"
+
     # Values
     CH_HOST=""
     CH_PORT=""
     WEBHOOK=""
+    KEEP_API_KEY=""
 
     if [ -f "$CONFIG_FILE" ]; then
         print_warn "Configuration file exists at $CONFIG_FILE"
@@ -97,15 +144,23 @@ setup_configuration() {
     fi
 
     print_info "Please configure the service:"
-    
+
     read -p "ClickHouse Host [default: $DEFAULT_CH_HOST]: " INPUT_CH_HOST
     CH_HOST=${INPUT_CH_HOST:-$DEFAULT_CH_HOST}
-    
+
     read -p "ClickHouse Port [default: $DEFAULT_CH_PORT]: " INPUT_CH_PORT
     CH_PORT=${INPUT_CH_PORT:-$DEFAULT_CH_PORT}
-    
+
     read -p "Alert Webhook URL [default: $DEFAULT_WEBHOOK]: " INPUT_WEBHOOK
     WEBHOOK=${INPUT_WEBHOOK:-$DEFAULT_WEBHOOK}
+
+    read -p "Keep API Key (press Enter to use env var): " INPUT_API_KEY
+    if [ -z "$INPUT_API_KEY" ]; then
+        KEEP_API_KEY="\${KEEP_API_KEY}"
+        print_info "Will use KEEP_API_KEY from environment"
+    else
+        KEEP_API_KEY="$INPUT_API_KEY"
+    fi
     
     # Generate config file
     cat > "$CONFIG_FILE" <<EOF
@@ -116,6 +171,9 @@ clickhouse:
   table: logs_v2
   poll_interval: 5
   batch_size: 1000
+  # Optional: Authentication (uncomment if needed)
+  # user: default
+  # password: your_password
 
 sigma:
   rules_path: ./config/sigma_rules/rules
@@ -127,12 +185,30 @@ sigma:
 
 alerting:
   keep_webhook_url: $WEBHOOK
+  keep_api_key: "$KEEP_API_KEY"
   deduplication_window: 300
   max_alerts_per_minute: 100
+  max_retries: 3
+  retry_delay: 1
+  use_redis: false
+
+# Optional: Redis configuration for distributed deduplication
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  # password: your_redis_password
+
+# Checkpoint configuration
+checkpoint:
+  file: data/checkpoint.json
 
 logging:
   level: INFO
-  file: /var/log/security-analyzer.log
+  file: logs/security-analyzer.log
+
+# Stats reporting interval (seconds)
+stats_interval: 60
 EOF
 
     print_info "Configuration file created at $CONFIG_FILE"
@@ -172,8 +248,9 @@ print_summary() {
 
 main() {
     print_info "Installing $SERVICE_NAME..."
-    
+
     check_dependencies
+    validate_env_file
     setup_sigma_rules
     setup_configuration
     start_service
