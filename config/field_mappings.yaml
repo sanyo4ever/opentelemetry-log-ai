@@ -1,0 +1,16 @@
+# Windows Security Events
+windows:
+  EventID: body.EventID
+  Channel: body.Channel
+  Computer: attributes.host.name
+  OSType: attributes.os.type
+  TargetUserName: body.EventData.TargetUserName
+  IpAddress: body.EventData.IpAddress
+  Level: severity_text
+
+# Linux Syslog
+linux:
+  message: body.message
+  hostname: attributes.host.name
+  source: attributes.log.file.path
+  severity: body.severity

@@ -1,0 +1,24 @@
+clickhouse:
+  host: clickhouse
+  port: 9000
+  database: signoz_logs
+  table: logs_v2
+  poll_interval: 5
+  batch_size: 1000
+
+sigma:
+  rules_path: ./config/sigma_rules/rules
+  enabled_categories:
+    - process_creation
+    - network_connection
+    - file_event
+  severity_filter: [high, critical]
+
+alerting:
+  keep_webhook_url: https://api.keephq.dev/alerts
+  deduplication_window: 300
+  max_alerts_per_minute: 100
+
+logging:
+  level: INFO
+  file: /var/log/security-analyzer.log

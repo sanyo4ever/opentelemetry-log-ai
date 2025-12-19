@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  security-analyzer:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile
+    container_name: security-log-analyzer
+    restart: always
+    volumes:
+      - ./config:/app/config
+      - ./logs:/var/log
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - signoz-net
+
+networks:
+  signoz-net:
+    external: true
