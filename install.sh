@@ -171,6 +171,9 @@ clickhouse:
   table: logs_v2
   poll_interval: 5
   batch_size: 1000
+  # Initial start behavior (only applies when no checkpoint exists)
+  # Options: "now" (default) - start from current time, "beginning" - process all historical logs
+  initial_start_mode: "now"
   # Optional: Authentication (uncomment if needed)
   # user: default
   # password: your_password

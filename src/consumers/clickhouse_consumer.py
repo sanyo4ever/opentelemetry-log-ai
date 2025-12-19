@@ -27,14 +27,30 @@ class ClickHouseConsumer:
         self.batch_size = config.get('batch_size', 1000)
         self.checkpoint_manager = checkpoint_manager
 
-        # Load checkpoint or start from now
+        # Load checkpoint or determine initial start point
         if self.checkpoint_manager:
             saved_checkpoint = self.checkpoint_manager.load()
-            self.last_query_time = saved_checkpoint if saved_checkpoint else int(datetime.now().timestamp() * 1e9)
+            if saved_checkpoint:
+                # Resume from saved checkpoint
+                self.last_query_time = saved_checkpoint
+                logger.info(f"Resuming from saved checkpoint: {self.last_query_time}")
+            else:
+                # No checkpoint exists - determine initial start mode
+                initial_start_mode = config.get('initial_start_mode', 'now')
+                if initial_start_mode == 'beginning':
+                    # Start from the beginning (timestamp 0)
+                    self.last_query_time = 0
+                    logger.info("No checkpoint found. Starting from the beginning (processing all historical logs)")
+                else:
+                    # Default: start from now
+                    self.last_query_time = int(datetime.now().timestamp() * 1e9)
+                    logger.info("No checkpoint found. Starting from current time (only new logs will be processed)")
         else:
+            # No checkpoint manager - always start from now
             self.last_query_time = int(datetime.now().timestamp() * 1e9)
+            logger.info("No checkpoint manager. Starting from current time")
 
-        logger.info(f"ClickHouse consumer initialized. Starting from timestamp: {self.last_query_time}")
+        logger.info(f"ClickHouse consumer initialized. Starting timestamp: {self.last_query_time}")
 
     def fetch_logs(self) -> List[Dict[str, Any]]:
         """
