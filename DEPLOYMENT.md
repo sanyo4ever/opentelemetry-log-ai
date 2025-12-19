@@ -4,8 +4,6 @@ This guide covers how to deploy and update the Security Log Analysis Service on 
 
 ## Quick Update (Existing Installation)
 
-### Option 1: Manual Update with Minimal Downtime
-
 ```bash
 # 1. SSH to your server
 ssh user@your-server
@@ -13,46 +11,30 @@ ssh user@your-server
 # 2. Navigate to project directory
 cd /path/to/opentelemetry-log-ai
 
-# 3. Stop the service
-sudo systemctl stop security-log-analyzer
-# OR if running in tmux/screen:
-# pkill -f "python.*main.py"
-
-# 4. Backup current checkpoint (optional but recommended)
-cp data/checkpoint.json data/checkpoint.json.backup
-
-# 5. Pull latest changes
+# 3. Pull latest changes
 git pull origin main
 
-# 6. Update dependencies
-source venv/bin/activate
-pip install -r requirements.txt
-
-# 7. Review configuration changes
-# Compare your config with the new template
-diff config/config.yaml config/config.yaml.example  # if you have an example
-
-# 8. Update your configuration if needed
-nano config/config.yaml
-
-# 9. Start the service
-sudo systemctl start security-log-analyzer
-# OR:
-# nohup python src/main.py > /dev/null 2>&1 &
-
-# 10. Verify it's running
-sudo systemctl status security-log-analyzer
-# OR:
-# tail -f logs/security-analyzer.log
+# 4. Run install script (handles update automatically)
+./install.sh
 ```
 
-### Option 2: Zero-Downtime Update (With Load Balancer)
+The `install.sh` script will:
+- Detect if this is an update or fresh install
+- Backup checkpoint automatically
+- Stop the service
+- Update dependencies
+- Apply configuration changes
+- Restart the service
+- Verify everything is working
+
+### Zero-Downtime Update (Multiple Instances)
+
+If you have multiple instances behind a load balancer:
 
 ```bash
-# If you have multiple instances behind a load balancer:
-
+# For each instance:
 # 1. Remove instance from load balancer
-# 2. Update the instance (steps from Option 1)
+# 2. Run: git pull && ./install.sh
 # 3. Add instance back to load balancer
 # 4. Repeat for other instances
 ```
@@ -331,73 +313,17 @@ volumes:
 
 ---
 
-## Update Procedures
+## Update Procedure
 
-### Standard Update (5-10 seconds downtime)
+Simply run the install script after pulling changes:
 
 ```bash
-#!/bin/bash
-# update.sh
-
-set -e
-
-echo "Starting update..."
-
-# Stop service
-sudo systemctl stop security-log-analyzer
-
-# Backup checkpoint
-cp data/checkpoint.json data/checkpoint.json.backup-$(date +%Y%m%d-%H%M%S)
-
-# Pull changes
+cd /path/to/opentelemetry-log-ai
 git pull origin main
-
-# Update dependencies
-source venv/bin/activate
-pip install -r requirements.txt --upgrade
-
-# Start service
-sudo systemctl start security-log-analyzer
-
-# Wait for service to start
-sleep 3
-
-# Check status
-sudo systemctl status security-log-analyzer
-
-echo "Update complete!"
+./install.sh
 ```
 
-Make it executable:
-```bash
-chmod +x update.sh
-```
-
-### Rolling Update (Zero downtime with multiple instances)
-
-```bash
-#!/bin/bash
-# rolling-update.sh
-
-INSTANCES=("server1" "server2" "server3")
-
-for instance in "${INSTANCES[@]}"; do
-    echo "Updating $instance..."
-
-    # Remove from load balancer
-    # (implement based on your LB - nginx, haproxy, etc.)
-
-    # SSH and update
-    ssh $instance "cd /opt/opentelemetry-log-ai && ./update.sh"
-
-    # Wait for health check
-    sleep 10
-
-    # Add back to load balancer
-
-    echo "$instance updated successfully"
-done
-```
+The `install.sh` script handles all update logic automatically.
 
 ---
 
@@ -511,35 +437,20 @@ sudo nano /etc/logrotate.d/security-analyzer
 }
 ```
 
-### Health Check Script
+### Health Check
+
+Check if the service is healthy:
 
 ```bash
-#!/bin/bash
-# healthcheck.sh
-
-LOG_FILE="logs/security-analyzer.log"
-MAX_AGE=300  # 5 minutes
-
 # Check if process is running
-if ! pgrep -f "python.*main.py" > /dev/null; then
-    echo "ERROR: Service not running"
-    exit 1
-fi
+pgrep -f "python.*main.py"
 
-# Check if logs are recent
-if [ -f "$LOG_FILE" ]; then
-    LAST_MODIFIED=$(date -r "$LOG_FILE" +%s)
-    NOW=$(date +%s)
-    AGE=$((NOW - LAST_MODIFIED))
+# Check recent logs
+tail -20 logs/security-analyzer.log
 
-    if [ $AGE -gt $MAX_AGE ]; then
-        echo "WARNING: Logs haven't been updated in $AGE seconds"
-        exit 1
-    fi
-fi
-
-echo "OK: Service is healthy"
-exit 0
+# Check checkpoint updates
+ls -lh data/checkpoint.json
+cat data/checkpoint.json
 ```
 
 ### Monitoring Integration
@@ -647,6 +558,9 @@ curl -X POST https://your-keep-webhook-url \
 ## Quick Reference
 
 ```bash
+# Install/Update service
+git pull origin main && ./install.sh
+
 # Start service
 sudo systemctl start security-log-analyzer
 
@@ -658,10 +572,8 @@ sudo systemctl restart security-log-analyzer
 
 # View logs
 sudo journalctl -u security-log-analyzer -f
+tail -f logs/security-analyzer.log
 
-# Update service
-./update.sh
-
-# Check health
-./healthcheck.sh
+# Check status
+sudo systemctl status security-log-analyzer
 ```
