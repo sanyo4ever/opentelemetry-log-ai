@@ -50,6 +50,9 @@ class ClickHouseConsumer:
         
         try:
             # Execute query without parameters (already injected)
+            # LOGGING QUERY FOR DEBUGGING
+            # print(f"DEBUG: Executing query: {query}")
+            
             rows = self.client.execute(
                 query, 
                 with_column_types=True
@@ -69,7 +72,8 @@ class ClickHouseConsumer:
                 print(f"Fetched {len(logs)} logs. New checkpoint_ns: {self.last_query_time}")
             
             return logs
-
+            
         except Exception as e:
             print(f"Error fetching logs from ClickHouse: {e}")
+            print(f"Failed Query: {query}")
             return []
