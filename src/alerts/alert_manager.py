@@ -58,6 +58,10 @@ class AlertManager:
             return f"[{hostname}] Sigma Match: {rule_title}"
         return f"Sigma Match: {rule_title}"
 
+    def _normalize_keep_source(self, source: str) -> list[str]:
+        value = str(source or "").strip()
+        return [value] if value else []
+
     def send_alert(self, alert_data: Dict[str, Any]) -> bool:
         """
         Sends the alert payload to the configured output with deduplication and throttling.
@@ -82,11 +86,12 @@ class AlertManager:
 
         # Format payload
         payload = {
-            "source": "SecurityLogAnalyzer",
+            # Keep's AlertDto expects `source` as a list[str].
+            "source": self._normalize_keep_source("SecurityLogAnalyzer"),
             "severity": alert_data.get("rule_level", "info"),
             "name": event_name,
-            "title": event_name,
-            "text": event_name,
+            "message": event_name,
+            "status": "firing",
             "details": alert_data
         }
 
