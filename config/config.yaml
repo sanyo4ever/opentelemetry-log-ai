@@ -26,7 +26,7 @@ sigma:
 
 alerting:
   keep_webhook_url: https://api.keephq.dev/alerts/event
-  keep_api_key: ""  # Your Keep API key (X-API-KEY header)
+  keep_api_key: "${KEEP_API_KEY}"  # Your Keep API key (X-API-KEY header)
   deduplication_window: 300  # seconds
   max_alerts_per_minute: 100
   max_retries: 3  # webhook retry attempts
