@@ -21,7 +21,22 @@ windows:
 
 # Linux Syslog
 linux:
-  message: body.message
-  hostname: attributes.host.name
-  source: attributes.log.file.path
-  severity: body.severity
+  # OTEL logs can arrive with body as a JSON object (e.g. journald fields like MESSAGE)
+  # or as a plain string. Provide fallbacks to maximize mapping coverage.
+  message:
+    - body.message
+    - body.MESSAGE
+    - body
+  hostname:
+    - attributes.host.name
+    - body._HOSTNAME
+  source:
+    - attributes.log.file.path
+    - attributes.log_file_path
+    - body.SYSLOG_IDENTIFIER
+    - body._SYSTEMD_UNIT
+    - body._COMM
+  severity:
+    - severity_text
+    - body.severity
+    - body.PRIORITY

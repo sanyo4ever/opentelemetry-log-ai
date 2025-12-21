@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -161,9 +161,22 @@ class OtelMapper:
 
         # Apply mappings
         for sigma_field, otel_path in active_mappings.items():
-            val = self._get_nested_value(structured_log, otel_path)
-            if val is not None:
-                mapped_log[sigma_field] = val
+            if otel_path is None:
+                continue
+
+            paths: Iterable[str]
+            if isinstance(otel_path, (list, tuple)):
+                paths = [str(p) for p in otel_path if p]
+            else:
+                paths = [str(otel_path)]
+
+            for path in paths:
+                val = self._get_nested_value(structured_log, path)
+                if isinstance(val, str) and not val.strip():
+                    continue
+                if val is not None:
+                    mapped_log[sigma_field] = val
+                    break
 
         # Add metadata
         mapped_log['_source_type'] = source_type

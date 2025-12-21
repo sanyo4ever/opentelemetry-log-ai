@@ -115,5 +115,40 @@ class TestBasicFlow(unittest.TestCase):
         self.assertTrue(len(alerts) > 0)
         self.assertEqual(alerts[0]['rule_title'], 'Potential Lateral Movement (NTLM Logon)')
 
+    def test_linux_mapping_message_from_journald(self):
+        raw_log = {
+            'timestamp': 1698422400000000100,
+            'severity_text': '',
+            'body': '{"MESSAGE": "hello from journald", "PRIORITY": "4", "SYSLOG_IDENTIFIER": "kernel"}',
+            'attributes_string': {},
+            'attributes_number': {},
+            'attributes_bool': {},
+            'resources_string': {'host.name': 'linux-host-1', 'os.type': 'linux'}
+        }
+
+        mapped = self.mapper.map_to_sigma(raw_log)
+        self.assertEqual(mapped.get('_source_type'), 'linux')
+        self.assertEqual(mapped.get('hostname'), 'linux-host-1')
+        self.assertEqual(mapped.get('message'), 'hello from journald')
+        self.assertEqual(mapped.get('severity'), '4')
+        self.assertEqual(mapped.get('source'), 'kernel')
+
+    def test_linux_mapping_message_from_plain_body(self):
+        raw_log = {
+            'timestamp': 1698422400000000200,
+            'severity_text': 'WARN',
+            'body': 'plain log line',
+            'attributes_string': {},
+            'attributes_number': {},
+            'attributes_bool': {},
+            'resources_string': {'host.name': 'linux-host-2', 'os.type': 'linux'}
+        }
+
+        mapped = self.mapper.map_to_sigma(raw_log)
+        self.assertEqual(mapped.get('_source_type'), 'linux')
+        self.assertEqual(mapped.get('hostname'), 'linux-host-2')
+        self.assertEqual(mapped.get('message'), 'plain log line')
+        self.assertEqual(mapped.get('severity'), 'WARN')
+
 if __name__ == '__main__':
     unittest.main()
