@@ -4,7 +4,11 @@ clickhouse:
   database: signoz_logs
   table: logs_v2
   poll_interval: 5
-  batch_size: 1000
+  batch_size: 10000
+  # Optional server-side filtering (recommended for high-volume ClickHouse tables)
+  # service_name_allowlist: ["windows-security", "windows-powershell"]
+  # body_contains: ["EventID", "mimikatz", "lsass.exe"]
+  # additional_where: "resources_string['host.name'] = 'my-host'"
   # Initial start behavior (only applies when no checkpoint exists)
   # Options: "now" (default) - start from current time, "beginning" - process all historical logs
   initial_start_mode: "now"

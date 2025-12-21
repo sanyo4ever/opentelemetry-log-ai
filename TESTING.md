@@ -35,7 +35,7 @@ docker-compose logs -f security-analyzer | grep -i alert
 docker-compose logs security-analyzer | grep "System Statistics" | tail -1
 
 # Verify events in ClickHouse
-clickhouse-client --query "SELECT count() FROM signoz_logs.logs_v2 WHERE timestamp > now() - INTERVAL 5 MINUTE"
+clickhouse-client --query "SELECT count() FROM signoz_logs.logs_v2 WHERE timestamp > toUnixTimestamp64Nano(now64(9)) - (5 * 60 * 1000000000)"
 ```
 
 ---
@@ -58,7 +58,7 @@ INSERT INTO signoz_logs.logs_v2 (
     attributes_string,
     resources_string
 ) VALUES (
-    toInt64(now64() * 1000000000),  -- Current timestamp in nanoseconds
+    toUnixTimestamp64Nano(now64(9)),  -- Current timestamp in nanoseconds
     'WARN',
     13,
     '{"EventID": 4625, "Channel": "Security", "EventData": {"TargetUserName": "testuser", "IpAddress": "192.168.1.100"}}',
@@ -78,6 +78,10 @@ tail -f logs/security-analyzer.log | grep "Failed Login"
 ```
 
 You should see:
+```
+Generated 1 alerts
+```
+If Keep alerting is configured (`alerting.keep_api_key`), you should also see:
 ```
 Alert sent successfully: Failed Login Attempt
 ```

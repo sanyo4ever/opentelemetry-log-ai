@@ -372,7 +372,7 @@ main() {
     print_info "   docker-compose logs -f security-analyzer | grep -i alert"
     print_info "3. Verify alerts in Keep platform"
     print_info "4. Check ClickHouse for ingested logs:"
-    print_info "   clickhouse-client --query 'SELECT count() FROM signoz_logs.logs_v2 WHERE timestamp > now() - INTERVAL 1 MINUTE'"
+    print_info "   clickhouse-client --query 'SELECT count() FROM signoz_logs.logs_v2 WHERE timestamp > toUnixTimestamp64Nano(now64(9)) - (60 * 1000000000)'"
     echo ""
 }
 
