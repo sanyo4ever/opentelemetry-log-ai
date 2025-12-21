@@ -158,8 +158,8 @@ def main():
                     logger.info("=" * 60)
                     last_stats_time = current_time
 
-                # If we got fewer than a full batch, we're likely caught up.
-                if not raw_logs or len(raw_logs) < consumer.batch_size:
+                # Drain until the consumer reports no new logs.
+                if not raw_logs:
                     break
 
         except KeyboardInterrupt:
