@@ -18,6 +18,12 @@ clickhouse:
 
 sigma:
   rules_path: ./config/sigma_rules/rules
+  # Optional: load additional Sigma rule packs (SigmaHQ repo layout).
+  # rules_paths:
+  #   - ./config/sigma_rules/rules
+  #   - ./config/sigma_rules/rules-emerging-threats
+  #   - ./config/sigma_rules/rules-threat-hunting
+  #   - ./config/sigma_rules/rules-compliance
   # Optional: limit rules by category/product to improve performance.
   # enabled_products: [windows, linux]
   # enabled_categories: [process_creation, network_connection, file_event]
