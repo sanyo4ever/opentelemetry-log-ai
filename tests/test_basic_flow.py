@@ -15,8 +15,11 @@ class TestBasicFlow(unittest.TestCase):
             self.mappings = yaml.safe_load(f)
         self.mapper = OtelMapper(self.mappings)
         
-        # Mock Engine Config
-        self.engine_config = {'rules_path': 'dummy', 'severity_filter': ['high', 'critical']}
+        # Use fixture Sigma rules for deterministic unit tests
+        fixtures_rules_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "fixtures/sigma_rules")
+        )
+        self.engine_config = {'rules_path': fixtures_rules_path, 'severity_filter': ['high', 'critical']}
         self.engine = SigmaEngine(self.engine_config)
 
     def test_failed_login_detection(self):
@@ -31,21 +34,15 @@ class TestBasicFlow(unittest.TestCase):
             'resources_string': {'service.name': 'windows-security', 'host.name': 'production-server-1', 'os.type': 'windows'}
         }
         
-        # 1. Map
-        mapped = self.mapper.map_to_sigma(raw_log)
-        
-        print(f"Mapped Log: {mapped}")
+        mapped = self.mapper.build_sigma_event(raw_log)
         
         self.assertEqual(mapped.get('EventID'), 4625)
         self.assertEqual(mapped.get('Computer'), 'production-server-1')
 
-        # 2. Evaluate
         alerts = self.engine.evaluate([mapped])
-        
-        print(f"Alerts: {alerts}")
-        
+
         self.assertTrue(len(alerts) > 0)
-        self.assertEqual(alerts[0]['rule_title'], 'Failed Login Attempt')
+        self.assertEqual(alerts[0]['rule_title'], 'Test Failed Login Attempt')
 
     def test_suspicious_powershell_detection(self):
         raw_log = {
@@ -58,11 +55,11 @@ class TestBasicFlow(unittest.TestCase):
             'resources_string': {'service.name': 'windows-powershell', 'host.name': 'workstation-1', 'os.type': 'windows'}
         }
 
-        mapped = self.mapper.map_to_sigma(raw_log)
+        mapped = self.mapper.build_sigma_event(raw_log)
         alerts = self.engine.evaluate([mapped])
 
         self.assertTrue(len(alerts) > 0)
-        self.assertEqual(alerts[0]['rule_title'], 'Suspicious PowerShell Activity')
+        self.assertEqual(alerts[0]['rule_title'], 'Test Suspicious PowerShell Activity')
 
     def test_mimikatz_detection(self):
         raw_log = {
@@ -75,11 +72,11 @@ class TestBasicFlow(unittest.TestCase):
             'resources_string': {'service.name': 'windows-security', 'host.name': 'victim-pc', 'os.type': 'windows'}
         }
 
-        mapped = self.mapper.map_to_sigma(raw_log)
+        mapped = self.mapper.build_sigma_event(raw_log)
         alerts = self.engine.evaluate([mapped])
 
         self.assertTrue(len(alerts) > 0)
-        self.assertEqual(alerts[0]['rule_title'], 'Possible Credential Dumping (LSASS Access)')
+        self.assertEqual(alerts[0]['rule_title'], 'Test Possible Credential Dumping (LSASS Access)')
 
     def test_privilege_escalation_detection(self):
         raw_log = {
@@ -92,11 +89,11 @@ class TestBasicFlow(unittest.TestCase):
             'resources_string': {'service.name': 'windows-security', 'host.name': 'dc-1', 'os.type': 'windows'}
         }
 
-        mapped = self.mapper.map_to_sigma(raw_log)
+        mapped = self.mapper.build_sigma_event(raw_log)
         alerts = self.engine.evaluate([mapped])
 
         self.assertTrue(len(alerts) > 0)
-        self.assertEqual(alerts[0]['rule_title'], 'Privilege Escalation (Group Membership Change)')
+        self.assertEqual(alerts[0]['rule_title'], 'Test Privilege Escalation (Group Membership Change)')
 
     def test_lateral_movement_detection(self):
         raw_log = {
@@ -109,11 +106,11 @@ class TestBasicFlow(unittest.TestCase):
             'resources_string': {'service.name': 'windows-security', 'host.name': 'server-1', 'os.type': 'windows'}
         }
 
-        mapped = self.mapper.map_to_sigma(raw_log)
+        mapped = self.mapper.build_sigma_event(raw_log)
         alerts = self.engine.evaluate([mapped])
 
         self.assertTrue(len(alerts) > 0)
-        self.assertEqual(alerts[0]['rule_title'], 'Potential Lateral Movement (NTLM Logon)')
+        self.assertEqual(alerts[0]['rule_title'], 'Test Potential Lateral Movement (NTLM Logon)')
 
     def test_linux_mapping_message_from_journald(self):
         raw_log = {

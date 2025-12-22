@@ -56,6 +56,15 @@ class OtelMapper:
                     structured_log['body'] = json.loads(structured_log['body'])
             except (json.JSONDecodeError, AttributeError):
                 pass
+
+        # 1b. Common Windows event shape: merge EventData fields for easier Sigma field access.
+        # Many Sigma rules refer to fields like "Image" / "CommandLine" which are typically found in EventData.
+        body = structured_log.get('body')
+        if isinstance(body, dict):
+            event_data = body.get('EventData')
+            if isinstance(event_data, dict):
+                for key, value in event_data.items():
+                    body.setdefault(key, value)
         
         # 2. Merge Separate Attribute Columns into one 'attributes' dictionary
         # This matches SigNoz's logs_v2 schema where attributes are split by type
@@ -143,6 +152,12 @@ class OtelMapper:
         Automatically detects log source type and applies appropriate mappings.
         """
         structured_log = self.parse_log_entry(raw_log)
+        return self.map_structured_to_sigma(structured_log)
+
+    def map_structured_to_sigma(self, structured_log: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Maps an already-parsed log entry to a flat Sigma-compatible dictionary.
+        """
         mapped_log = {}
 
         # Detect log source type
@@ -186,3 +201,51 @@ class OtelMapper:
         # mapped_log['original_log'] = structured_log
 
         return mapped_log
+
+    def build_sigma_event(self, raw_log: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Builds a Sigma evaluation event that merges:
+        - Parsed body fields (top-level)
+        - Attributes and resources (top-level)
+        - Mapped Sigma fields (top-level, takes precedence)
+
+        This increases compatibility with upstream Sigma rules that reference fields
+        directly (e.g. "Image", "CommandLine") while still keeping our explicit mappings.
+        """
+        structured_log = self.parse_log_entry(raw_log)
+        mapped = self.map_structured_to_sigma(structured_log)
+
+        event: Dict[str, Any] = {}
+
+        body = structured_log.get('body')
+        if isinstance(body, dict):
+            event.update(body)
+        elif body is not None:
+            # Keep the raw body available; also help "keywords" search by setting message when possible.
+            event['body'] = body
+            if isinstance(body, str):
+                event.setdefault('message', body)
+
+        attributes = structured_log.get('attributes', {})
+        if isinstance(attributes, dict):
+            for key, value in attributes.items():
+                event.setdefault(key, value)
+
+        resource = structured_log.get('resource', {})
+        if isinstance(resource, dict):
+            for key, value in resource.items():
+                event.setdefault(key, value)
+
+        # Include basic ClickHouse columns for context (do not overwrite existing keys).
+        for key in ('timestamp', 'severity_text', 'severity_number', 'id'):
+            if key in structured_log:
+                event.setdefault(key, structured_log.get(key))
+
+        # Apply mapped Sigma fields last (explicit mappings win).
+        event.update(mapped)
+
+        # Convenience: some Sigma rules use "Message" (capitalized).
+        if 'message' in event:
+            event.setdefault('Message', event.get('message'))
+
+        return event

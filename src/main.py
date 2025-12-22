@@ -123,16 +123,16 @@ def main():
                     logger.info(f"Processing {len(raw_logs)} logs...")
 
                     # 2. Map logs to Sigma format
-                    mapped_logs = []
+                    sigma_events = []
                     for log in raw_logs:
                         try:
-                            mapped = mapper.map_to_sigma(log)
-                            mapped_logs.append(mapped)
+                            event = mapper.build_sigma_event(log)
+                            sigma_events.append(event)
                         except Exception as e:
                             logger.error(f"Error mapping log: {e}", exc_info=True)
 
                     # 3. Detect threats using Sigma rules
-                    alerts = engine.evaluate(mapped_logs)
+                    alerts = engine.evaluate(sigma_events)
 
                     if alerts:
                         logger.info(f"Generated {len(alerts)} alerts")

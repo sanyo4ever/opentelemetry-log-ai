@@ -1,0 +1,14 @@
+title: Test Possible Credential Dumping (LSASS Access)
+id: 00000000-0000-0000-0000-000000000003
+status: test
+description: Fixture rule used by unit tests.
+logsource:
+  product: windows
+  category: process_access
+detection:
+  selection:
+    EventID: 10
+    TargetImage|endswith: '\\lsass.exe'
+    GrantedAccess|contains: '0x1010'
+  condition: selection
+level: critical

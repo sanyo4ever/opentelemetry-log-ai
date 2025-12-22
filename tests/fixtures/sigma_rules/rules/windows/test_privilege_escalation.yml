@@ -1,0 +1,12 @@
+title: Test Privilege Escalation (Group Membership Change)
+id: 00000000-0000-0000-0000-000000000004
+status: test
+description: Fixture rule used by unit tests.
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4728
+  condition: selection
+level: high
