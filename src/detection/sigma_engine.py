@@ -759,6 +759,10 @@ class SigmaEngine:
         condition_str = detection.get("condition")
         if not condition_str or not isinstance(condition_str, str):
             return None
+        # Correlation / aggregation rules often use pipelines (e.g. `selection | count(...) by ... > n`)
+        # which are not supported by this in-memory evaluator.
+        if "|" in condition_str:
+            return None
 
         title = _coerce_str(doc.get("title")).strip() or os.path.basename(file_path)
         status = _normalize_level(doc.get("status"))
