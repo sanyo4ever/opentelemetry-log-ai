@@ -4,7 +4,7 @@ clickhouse:
   database: signoz_logs
   table: logs_v2
   poll_interval: 5
-  batch_size: 10000
+  batch_size: 20000
   # Optional server-side filtering (recommended for high-volume ClickHouse tables)
   # service_name_allowlist: ["windows-security", "windows-powershell"]
   # body_contains: ["EventID", "mimikatz", "lsass.exe"]
