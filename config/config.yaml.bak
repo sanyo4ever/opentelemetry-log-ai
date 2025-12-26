@@ -1,0 +1,45 @@
+clickhouse:
+  host: clickhouse
+  port: 9000
+  database: signoz_logs
+  table: logs_v2
+  poll_interval: 5
+  batch_size: 1000
+  # Optional: Authentication (uncomment if needed)
+  # user: default
+  # password: your_password
+
+sigma:
+  rules_path: ./config/sigma_rules/rules
+  enabled_categories:
+    - process_creation
+    - network_connection
+    - file_event
+  severity_filter: [high, critical]
+
+alerting:
+  keep_webhook_url: https://api.keephq.dev/alerts/event
+  keep_api_key: ""  # Your Keep API key (X-API-KEY header)
+  deduplication_window: 300  # seconds
+  max_alerts_per_minute: 100
+  max_retries: 3  # webhook retry attempts
+  retry_delay: 1  # initial retry delay in seconds (exponential backoff)
+  use_redis: false  # set to true for distributed deduplication
+
+# Optional: Redis configuration for distributed deduplication
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  # password: your_redis_password
+
+# Checkpoint configuration
+checkpoint:
+  file: data/checkpoint.json
+
+logging:
+  level: INFO
+  file: logs/security-analyzer.log
+
+# Stats reporting interval (seconds)
+stats_interval: 60

@@ -18,19 +18,14 @@ clickhouse:
 
 sigma:
   rules_path: ./config/sigma_rules/rules
-  # Optional: load additional Sigma rule packs (SigmaHQ repo layout).
-  # rules_paths:
-  #   - ./config/sigma_rules/rules
-  #   - ./config/sigma_rules/rules-emerging-threats
-  #   - ./config/sigma_rules/rules-threat-hunting
-  #   - ./config/sigma_rules/rules-compliance
-  # Optional: limit rules by category/product to improve performance.
-  # enabled_products: [windows, linux]
-  # enabled_categories: [process_creation, network_connection, file_event]
+  enabled_categories:
+    - process_creation
+    - network_connection
+    - file_event
   severity_filter: [high, critical]
 
 alerting:
-  keep_webhook_url: https://api.keephq.dev/alerts/event
+  keep_webhook_url: https://api.keep-zpz9.consultic.tech/alerts/event
   keep_api_key: "${KEEP_API_KEY}"  # Your Keep API key (X-API-KEY header)
   deduplication_window: 300  # seconds
   max_alerts_per_minute: 100

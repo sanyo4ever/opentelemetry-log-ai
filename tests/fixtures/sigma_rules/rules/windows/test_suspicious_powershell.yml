@@ -1,0 +1,16 @@
+title: Test Suspicious PowerShell Activity
+id: 00000000-0000-0000-0000-000000000002
+status: test
+description: Fixture rule used by unit tests.
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - downloadstring
+      - invoke-mimikatz
+      - -encodedcommand
+  condition: selection
+level: critical

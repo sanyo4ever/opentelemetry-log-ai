@@ -4,11 +4,7 @@ clickhouse:
   database: signoz_logs
   table: logs_v2
   poll_interval: 5
-  batch_size: 10000
-  # Optional server-side filtering (recommended for high-volume ClickHouse tables)
-  # service_name_allowlist: ["windows-security", "windows-powershell"]
-  # body_contains: ["EventID", "mimikatz", "lsass.exe"]
-  # additional_where: "resources_string['host.name'] = 'my-host'"
+  batch_size: 1000
   # Initial start behavior (only applies when no checkpoint exists)
   # Options: "now" (default) - start from current time, "beginning" - process all historical logs
   initial_start_mode: "now"
@@ -18,20 +14,15 @@ clickhouse:
 
 sigma:
   rules_path: ./config/sigma_rules/rules
-  # Optional: load additional Sigma rule packs (SigmaHQ repo layout).
-  # rules_paths:
-  #   - ./config/sigma_rules/rules
-  #   - ./config/sigma_rules/rules-emerging-threats
-  #   - ./config/sigma_rules/rules-threat-hunting
-  #   - ./config/sigma_rules/rules-compliance
-  # Optional: limit rules by category/product to improve performance.
-  # enabled_products: [windows, linux]
-  # enabled_categories: [process_creation, network_connection, file_event]
+  enabled_categories:
+    - process_creation
+    - network_connection
+    - file_event
   severity_filter: [high, critical]
 
 alerting:
   keep_webhook_url: https://api.keephq.dev/alerts/event
-  keep_api_key: "${KEEP_API_KEY}"  # Your Keep API key (X-API-KEY header)
+  keep_api_key: ""  # Your Keep API key (X-API-KEY header)
   deduplication_window: 300  # seconds
   max_alerts_per_minute: 100
   max_retries: 3  # webhook retry attempts

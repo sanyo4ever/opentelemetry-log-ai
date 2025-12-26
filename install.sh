@@ -170,7 +170,7 @@ clickhouse:
   database: signoz_logs
   table: logs_v2
   poll_interval: 5
-  batch_size: 1000
+  batch_size: 10000
   # Initial start behavior (only applies when no checkpoint exists)
   # Options: "now" (default) - start from current time, "beginning" - process all historical logs
   initial_start_mode: "now"
@@ -180,10 +180,15 @@ clickhouse:
 
 sigma:
   rules_path: ./config/sigma_rules/rules
-  enabled_categories:
-    - process_creation
-    - network_connection
-    - file_event
+  # Optional: load additional Sigma rule packs (SigmaHQ repo layout).
+  # rules_paths:
+  #   - ./config/sigma_rules/rules
+  #   - ./config/sigma_rules/rules-emerging-threats
+  #   - ./config/sigma_rules/rules-threat-hunting
+  #   - ./config/sigma_rules/rules-compliance
+  # Optional: limit rules by category/product to improve performance.
+  # enabled_products: [windows, linux]
+  # enabled_categories: [process_creation, network_connection, file_event]
   severity_filter: [high, critical]
 
 alerting:

@@ -26,6 +26,42 @@ class AlertManager:
         api_key_status = "configured" if self.keep_api_key else "not configured"
         logger.info(f"Alert manager initialized (webhook: {self.webhook_url}, API key: {api_key_status}, max_alerts/min: {self.max_alerts_per_minute})")
 
+    def _extract_hostname(self, alert_data: Dict[str, Any]) -> Optional[str]:
+        log_data = alert_data.get("log_data") or {}
+        if not isinstance(log_data, dict):
+            return None
+
+        candidates = [
+            log_data.get("Computer"),   # Windows mapping
+            log_data.get("hostname"),   # Linux mapping
+            log_data.get("host.name"),
+            log_data.get("host"),
+            log_data.get("host_name"),
+        ]
+
+        for candidate in candidates:
+            if candidate is None:
+                continue
+            if isinstance(candidate, str):
+                value = candidate.strip()
+                if value:
+                    return value
+                continue
+            return str(candidate)
+
+        return None
+
+    def _format_event_name(self, alert_data: Dict[str, Any]) -> str:
+        rule_title = str(alert_data.get("rule_title") or "Unknown").strip() or "Unknown"
+        hostname = self._extract_hostname(alert_data)
+        if hostname:
+            return f"[{hostname}] Sigma Match: {rule_title}"
+        return f"Sigma Match: {rule_title}"
+
+    def _normalize_keep_source(self, source: str) -> list[str]:
+        value = str(source or "").strip()
+        return [value] if value else []
+
     def send_alert(self, alert_data: Dict[str, Any]) -> bool:
         """
         Sends the alert payload to the configured output with deduplication and throttling.
@@ -46,16 +82,21 @@ class AlertManager:
             logger.warning(f"Alert rate limit exceeded ({self.max_alerts_per_minute}/min), dropping alert: {alert_data.get('rule_title')}")
             return False
 
+        event_name = self._format_event_name(alert_data)
+
         # Format payload
         payload = {
-            "source": "SecurityLogAnalyzer",
+            # Keep's AlertDto expects `source` as a list[str].
+            "source": self._normalize_keep_source("SecurityLogAnalyzer"),
             "severity": alert_data.get("rule_level", "info"),
-            "text": f"Sigma Rule Match: {alert_data.get('rule_title', 'Unknown')}",
+            "name": event_name,
+            "message": event_name,
+            "status": "firing",
             "details": alert_data
         }
 
         # Send with retry logic
-        return self._send_with_retry(payload, alert_data.get('rule_title', 'Unknown'))
+        return self._send_with_retry(payload, event_name)
 
     def _check_rate_limit(self) -> bool:
         """

@@ -2,15 +2,41 @@
 windows:
   EventID: body.EventID
   Channel: body.Channel
+  ServiceName: attributes.service.name
   Computer: attributes.host.name
   OSType: attributes.os.type
   TargetUserName: body.EventData.TargetUserName
   IpAddress: body.EventData.IpAddress
+  FailureReason: body.EventData.FailureReason
+  LogonType: body.EventData.LogonType
+  AuthenticationPackageName: body.EventData.AuthenticationPackageName
+  MemberName: body.EventData.MemberName
+  SubjectUserName: body.EventData.SubjectUserName
+  ScriptBlockText: body.ScriptBlockText
+  ScriptPath: body.Path
+  SourceImage: body.EventData.SourceImage
+  TargetImage: body.EventData.TargetImage
+  GrantedAccess: body.EventData.GrantedAccess
   Level: severity_text
 
 # Linux Syslog
 linux:
-  message: body.message
-  hostname: attributes.host.name
-  source: attributes.log.file.path
-  severity: body.severity
+  # OTEL logs can arrive with body as a JSON object (e.g. journald fields like MESSAGE)
+  # or as a plain string. Provide fallbacks to maximize mapping coverage.
+  message:
+    - body.message
+    - body.MESSAGE
+    - body
+  hostname:
+    - attributes.host.name
+    - body._HOSTNAME
+  source:
+    - attributes.log.file.path
+    - attributes.log_file_path
+    - body.SYSLOG_IDENTIFIER
+    - body._SYSTEMD_UNIT
+    - body._COMM
+  severity:
+    - severity_text
+    - body.severity
+    - body.PRIORITY

@@ -114,47 +114,53 @@ def main():
 
     while True:
         try:
-            # 1. Fetch logs from ClickHouse
-            raw_logs = consumer.fetch_logs()
+            # Process as many batches as are immediately available.
+            while True:
+                # 1. Fetch logs from ClickHouse
+                raw_logs = consumer.fetch_logs()
 
-            if raw_logs:
-                logger.info(f"Processing {len(raw_logs)} logs...")
+                if raw_logs:
+                    logger.info(f"Processing {len(raw_logs)} logs...")
 
-                # 2. Map logs to Sigma format
-                mapped_logs = []
-                for log in raw_logs:
-                    try:
-                        mapped = mapper.map_to_sigma(log)
-                        mapped_logs.append(mapped)
-                    except Exception as e:
-                        logger.error(f"Error mapping log: {e}", exc_info=True)
+                    # 2. Map logs to Sigma format
+                    sigma_events = []
+                    for log in raw_logs:
+                        try:
+                            event = mapper.build_sigma_event(log)
+                            sigma_events.append(event)
+                        except Exception as e:
+                            logger.error(f"Error mapping log: {e}", exc_info=True)
 
-                # 3. Detect threats using Sigma rules
-                alerts = engine.evaluate(mapped_logs)
+                    # 3. Detect threats using Sigma rules
+                    alerts = engine.evaluate(sigma_events)
 
-                if alerts:
-                    logger.info(f"Generated {len(alerts)} alerts")
+                    if alerts:
+                        logger.info(f"Generated {len(alerts)} alerts")
 
-                # 4. Send alerts
-                sent_count = 0
-                for alert in alerts:
-                    try:
-                        if alerter.send_alert(alert):
-                            sent_count += 1
-                    except Exception as e:
-                        logger.error(f"Error sending alert: {e}", exc_info=True)
+                    # 4. Send alerts
+                    sent_count = 0
+                    for alert in alerts:
+                        try:
+                            if alerter.send_alert(alert):
+                                sent_count += 1
+                        except Exception as e:
+                            logger.error(f"Error sending alert: {e}", exc_info=True)
 
-                if alerts:
-                    logger.info(f"Sent {sent_count}/{len(alerts)} alerts")
+                    if alerts:
+                        logger.info(f"Sent {sent_count}/{len(alerts)} alerts")
 
-            # Print stats periodically
-            current_time = time.time()
-            if current_time - last_stats_time >= stats_interval:
-                logger.info("=" * 60)
-                logger.info("System Statistics:")
-                logger.info(f"Alert Manager: {alerter.get_stats()}")
-                logger.info("=" * 60)
-                last_stats_time = current_time
+                # Print stats periodically (even when idle)
+                current_time = time.time()
+                if current_time - last_stats_time >= stats_interval:
+                    logger.info("=" * 60)
+                    logger.info("System Statistics:")
+                    logger.info(f"Alert Manager: {alerter.get_stats()}")
+                    logger.info("=" * 60)
+                    last_stats_time = current_time
+
+                # Drain until the consumer reports no new logs.
+                if not raw_logs:
+                    break
 
         except KeyboardInterrupt:
             logger.info("Received shutdown signal")

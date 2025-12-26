@@ -1,0 +1,13 @@
+title: Test Potential Lateral Movement (NTLM Logon)
+id: 00000000-0000-0000-0000-000000000005
+status: test
+description: Fixture rule used by unit tests.
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4624
+    AuthenticationPackageName: NTLM
+  condition: selection
+level: high
