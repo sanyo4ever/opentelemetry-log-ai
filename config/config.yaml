@@ -30,7 +30,7 @@ sigma:
   severity_filter: [high, critical]
 
 alerting:
-  keep_webhook_url: https://api.keephq.dev/alerts/event
+  keep_webhook_url: https://api.keep-zpz9.consultic.tech/alerts/event
   keep_api_key: "${KEEP_API_KEY}"  # Your Keep API key (X-API-KEY header)
   deduplication_window: 300  # seconds
   max_alerts_per_minute: 100
