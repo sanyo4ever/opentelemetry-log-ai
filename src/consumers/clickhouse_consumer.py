@@ -60,10 +60,15 @@ class ClickHouseConsumer:
         # Ensure timestamp is integer nanoseconds
         last_time_ns = int(self.last_query_time)
 
+        # Convert nanoseconds to ts_bucket_start (unix seconds, 30-min buckets)
+        last_time_seconds = last_time_ns // 1_000_000_000
+        last_bucket_start = (last_time_seconds // 1800) * 1800  # Round down to 30-min bucket
+
         query = f"""
             SELECT
                 id,
                 timestamp,
+                ts_bucket_start,
                 severity_text,
                 severity_number,
                 body,
@@ -72,8 +77,9 @@ class ClickHouseConsumer:
                 attributes_bool,
                 resources_string
             FROM {self.table}
-            WHERE timestamp > {last_time_ns}
-            ORDER BY timestamp ASC
+            WHERE ts_bucket_start >= {last_bucket_start}
+              AND timestamp > {last_time_ns}
+            ORDER BY ts_bucket_start, timestamp
             LIMIT {self.batch_size}
         """
 
