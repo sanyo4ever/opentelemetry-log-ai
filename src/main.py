@@ -11,6 +11,7 @@ from detection.sigma_engine import SigmaEngine
 from alerts.alert_manager import AlertManager
 from utils.checkpoint import CheckpointManager
 from utils.deduplication import AlertDeduplicator
+from utils.sigma_updater import SigmaRulesUpdater
 
 def setup_logging(config: Dict[str, Any]):
     """Configure logging based on config."""
@@ -98,6 +99,18 @@ def main():
         engine = SigmaEngine(config['sigma'])
         alerter = AlertManager(config['alerting'], deduplicator)
 
+        # Sigma rules updater (optional)
+        sigma_updater = None
+        updater_config = config.get('sigma', {}).get('updater', {})
+        if updater_config.get('enabled', False):
+            sigma_updater = SigmaRulesUpdater({
+                'rules_path': config['sigma'].get('rules_path', './config/sigma_rules'),
+                'auto_update_enabled': updater_config.get('auto_update', False),
+                'check_interval_hours': updater_config.get('check_interval_hours', 24),
+            })
+            sigma_updater.start_background_checker()
+            logger.info("Sigma rules auto-updater enabled")
+
         logger.info("All components initialized successfully")
         logger.info(f"Poll interval: {config['clickhouse'].get('poll_interval', 5)}s")
 
@@ -155,6 +168,8 @@ def main():
                     logger.info("=" * 60)
                     logger.info("System Statistics:")
                     logger.info(f"Alert Manager: {alerter.get_stats()}")
+                    if sigma_updater:
+                        logger.info(f"Sigma Updater: {sigma_updater.get_status()}")
                     logger.info("=" * 60)
                     last_stats_time = current_time
 
@@ -164,6 +179,8 @@ def main():
 
         except KeyboardInterrupt:
             logger.info("Received shutdown signal")
+            if sigma_updater:
+                sigma_updater.stop_background_checker()
             break
         except Exception as e:
             logger.error(f"Error in main loop: {e}", exc_info=True)

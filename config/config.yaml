@@ -29,6 +29,13 @@ sigma:
   # enabled_categories: [process_creation, network_connection, file_event]
   severity_filter: [high, critical]
 
+  # Sigma Rules Auto-Updater settings
+  updater:
+    enabled: true                    # Enable background update checker
+    check_interval_hours: 24         # How often to check for updates (default: 24)
+    auto_update: false               # Automatically pull updates (default: false, just notify)
+    notify_on_updates: true          # Log when updates are available
+
 alerting:
   keep_webhook_url: https://api.keep-zpz9.consultic.tech/alerts/event
   keep_api_key: "${KEEP_API_KEY}"  # Your Keep API key (X-API-KEY header)
