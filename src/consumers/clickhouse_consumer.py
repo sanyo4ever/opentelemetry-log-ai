@@ -1,11 +1,45 @@
 import time
 import logging
+import re
 from datetime import datetime
 from clickhouse_driver import Client
 from typing import List, Dict, Any, Optional
 from utils.checkpoint import CheckpointManager
 
 logger = logging.getLogger(__name__)
+
+# SQL injection prevention patterns
+_DANGEROUS_SQL_PATTERNS = re.compile(
+    r';\s*(?:DROP|DELETE|TRUNCATE|INSERT|UPDATE|ALTER|CREATE|GRANT|REVOKE|EXEC|EXECUTE|UNION|INTO\s+OUTFILE|INTO\s+DUMPFILE)',
+    re.IGNORECASE
+)
+_COMMENT_PATTERNS = re.compile(r'(--|/\*|\*/|#\s)')
+
+
+def _validate_additional_where(clause: str) -> str:
+    """
+    Validates and sanitizes additional_where clause to prevent SQL injection.
+    Raises ValueError if dangerous patterns are detected.
+    """
+    if not clause:
+        return clause
+
+    clause = clause.strip()
+
+    # Check for dangerous SQL patterns
+    if _DANGEROUS_SQL_PATTERNS.search(clause):
+        raise ValueError(f"Potentially dangerous SQL pattern detected in additional_where: {clause[:100]}")
+
+    # Check for SQL comments which could be used to bypass checks
+    if _COMMENT_PATTERNS.search(clause):
+        raise ValueError(f"SQL comments not allowed in additional_where: {clause[:100]}")
+
+    # Check for multiple statements (semicolons followed by keywords)
+    if ';' in clause:
+        raise ValueError(f"Multiple SQL statements not allowed in additional_where: {clause[:100]}")
+
+    logger.debug(f"additional_where clause validated: {clause[:50]}...")
+    return clause
 
 class ClickHouseConsumer:
     def __init__(self, config: Dict[str, Any], checkpoint_manager: Optional[CheckpointManager] = None):
@@ -22,13 +56,26 @@ class ClickHouseConsumer:
         if 'password' in config:
             client_config['password'] = config['password']
 
+        # TLS/SSL configuration
+        if config.get('secure', False):
+            client_config['secure'] = True
+            # Optional: verify certificate (default True)
+            client_config['verify'] = config.get('verify_ssl', True)
+            # Optional: custom CA certificate
+            if config.get('ca_certs'):
+                client_config['ca_certs'] = config['ca_certs']
+            logger.info("ClickHouse TLS enabled")
+
         self.client = Client(**client_config)
         self.table = config['table']
         self.batch_size = config.get('batch_size', 1000)
         self.checkpoint_manager = checkpoint_manager
         self.service_name_allowlist = config.get('service_name_allowlist', []) or []
         self.body_contains = config.get('body_contains', []) or []
-        self.additional_where = config.get('additional_where')
+
+        # Validate additional_where to prevent SQL injection
+        raw_additional_where = config.get('additional_where')
+        self.additional_where = _validate_additional_where(raw_additional_where) if raw_additional_where else None
 
         # Load checkpoint or determine initial start point
         if self.checkpoint_manager:

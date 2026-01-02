@@ -33,7 +33,7 @@ sigma:
   updater:
     enabled: true                    # Enable background update checker
     check_interval_hours: 24         # How often to check for updates (default: 24)
-    auto_update: false               # Automatically pull updates (default: false, just notify)
+    auto_update: true                # Automatically pull updates when available
     notify_on_updates: true          # Log when updates are available
 
 alerting:
